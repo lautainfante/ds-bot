@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
 const DEFAULT_LINUX_BINARY = "/usr/local/bin/yt-dlp";
+const DEFAULT_BGUTIL_SCRIPT_PATH = "/opt/bgutil-ytdlp-pot-provider/server/build/generate_once.js";
 const AUDIO_FORMAT_SELECTORS = [
   "bestaudio[acodec!=none]/bestaudio*/ba",
   "140/251/250/249",
@@ -180,11 +181,13 @@ function looksLikeNetscapeCookies(value: string): boolean {
 
 function buildExtractorArgs(): string[] {
   const extractorArgs: string[] = [];
-  const bgutilServerHome = process.env.YT_DLP_BGUTIL_SERVER_HOME?.trim();
+  const bgutilScriptPath = process.env.YT_DLP_BGUTIL_SCRIPT_PATH?.trim();
   const poToken = process.env.YT_DLP_YOUTUBE_PO_TOKEN?.trim();
 
-  if (bgutilServerHome) {
-    extractorArgs.push(`youtubepot-bgutilscript:server_home=${bgutilServerHome}`);
+  if (bgutilScriptPath) {
+    extractorArgs.push(`youtubepot-bgutilscript:script_path=${bgutilScriptPath}`);
+  } else if (process.platform !== "win32") {
+    extractorArgs.push(`youtubepot-bgutilscript:script_path=${DEFAULT_BGUTIL_SCRIPT_PATH}`);
   }
 
   if (!poToken) {

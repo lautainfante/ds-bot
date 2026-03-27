@@ -15,7 +15,7 @@ export interface AppEnv {
   ytDlpCookiesPath?: string;
   ytDlpCookiesBase64?: string;
   ytDlpYouTubePoToken?: string;
-  ytDlpBgutilServerHome?: string;
+  ytDlpBgutilScriptPath?: string;
 }
 
 export function loadEnv(): AppEnv {
@@ -38,7 +38,7 @@ export function loadEnv(): AppEnv {
     ytDlpCookiesPath: optionalEnv("YT_DLP_COOKIES_PATH"),
     ytDlpCookiesBase64: optionalEnv("YT_DLP_COOKIES_BASE64"),
     ytDlpYouTubePoToken: optionalEnv("YT_DLP_YOUTUBE_PO_TOKEN"),
-    ytDlpBgutilServerHome: optionalEnv("YT_DLP_BGUTIL_SERVER_HOME")
+    ytDlpBgutilScriptPath: optionalEnv("YT_DLP_BGUTIL_SCRIPT_PATH")
   };
 }
 

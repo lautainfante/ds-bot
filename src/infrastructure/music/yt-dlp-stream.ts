@@ -6,144 +6,62 @@ import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
 const DEFAULT_LINUX_BINARY = "/usr/local/bin/yt-dlp";
+const AUDIO_FORMAT_SELECTORS = [
+  "bestaudio[acodec!=none]/bestaudio*/ba",
+  "140/251/250/249",
+  "best"
+];
 let cookiesPathPromise: Promise<string | undefined> | undefined;
 
 export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.ReadableStream> {
   const executable = await resolveYtDlpPath();
-  const args = await createBaseArgs([
-    "--no-playlist",
-    "--quiet",
-    "--no-warnings",
-    "-f",
-    "bestaudio/best",
-    "-o",
-    "-",
-    normalizeYouTubeUrl(videoUrl)
-  ]);
+  let lastError: Error | undefined;
 
-  return await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-    const child = spawn(executable, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true
-    });
-    const output = new PassThrough();
+  for (const formatSelector of AUDIO_FORMAT_SELECTORS) {
+    try {
+      const args = await createBaseArgs([
+        "--no-playlist",
+        "--quiet",
+        "--no-warnings",
+        "-f",
+        formatSelector,
+        "-o",
+        "-",
+        normalizeYouTubeUrl(videoUrl)
+      ]);
 
-    const stderrChunks: string[] = [];
-    let settled = false;
+      return await spawnYtDlpStream(executable, args);
+    } catch (error) {
+      lastError = wrapSelectorError(formatSelector, error);
+    }
+  }
 
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      if (stderrChunks.join("").length < 4000) {
-        stderrChunks.push(chunk);
-      }
-    });
-
-    child.once("error", (error) => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      reject(error);
-    });
-
-    child.once("spawn", () => {
-      if (settled) {
-        return;
-      }
-
-      child.stdout.pipe(output);
-
-      settled = true;
-      resolve(output);
-    });
-
-    child.once("exit", (code) => {
-      if (!settled) {
-        if (code !== 0) {
-          settled = true;
-          reject(
-            new Error(
-              `yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`
-            )
-          );
-        }
-
-        return;
-      }
-
-      if (code === 0 || code === null) {
-        output.end();
-        return;
-      }
-
-      output.destroy(
-        new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
-      );
-    });
-
-    output.once("close", () => {
-      if (!child.killed) {
-        child.kill();
-      }
-    });
-  });
+  throw lastError ?? new Error("yt-dlp no pudo abrir el stream.");
 }
 
 export async function resolveYtDlpAudioUrl(videoUrl: string): Promise<string> {
   const executable = await resolveYtDlpPath();
-  const args = await createBaseArgs([
-    "--no-playlist",
-    "--quiet",
-    "--no-warnings",
-    "-f",
-    "bestaudio/best",
-    "-g",
-    normalizeYouTubeUrl(videoUrl)
-  ]);
+  let lastError: Error | undefined;
 
-  return await new Promise<string>((resolve, reject) => {
-    const child = spawn(executable, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true
-    });
+  for (const formatSelector of AUDIO_FORMAT_SELECTORS) {
+    try {
+      const args = await createBaseArgs([
+        "--no-playlist",
+        "--quiet",
+        "--no-warnings",
+        "-f",
+        formatSelector,
+        "-g",
+        normalizeYouTubeUrl(videoUrl)
+      ]);
 
-    const stdoutChunks: string[] = [];
-    const stderrChunks: string[] = [];
+      return await spawnYtDlpUrl(executable, args);
+    } catch (error) {
+      lastError = wrapSelectorError(formatSelector, error);
+    }
+  }
 
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-
-    child.stdout.on("data", (chunk: string) => {
-      stdoutChunks.push(chunk);
-    });
-
-    child.stderr.on("data", (chunk: string) => {
-      if (stderrChunks.join("").length < 4000) {
-        stderrChunks.push(chunk);
-      }
-    });
-
-    child.once("error", reject);
-
-    child.once("exit", (code) => {
-      if (code && code !== 0) {
-        reject(
-          new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
-        );
-        return;
-      }
-
-      const resolvedUrl = stdoutChunks.join("").trim().split(/\r?\n/)[0]?.trim();
-
-      if (!resolvedUrl) {
-        reject(new Error(`yt-dlp did not return an audio URL${formatStderr(stderrChunks)}`));
-        return;
-      }
-
-      resolve(resolvedUrl);
-    });
-  });
+  throw lastError ?? new Error("yt-dlp no pudo resolver una URL de audio.");
 }
 
 async function resolveYtDlpPath(): Promise<string> {
@@ -231,4 +149,126 @@ function normalizeYouTubeUrl(url: string): string {
 function formatStderr(stderrChunks: string[]): string {
   const stderr = stderrChunks.join("").trim();
   return stderr.length > 0 ? `: ${stderr}` : "";
+}
+
+function wrapSelectorError(formatSelector: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  return new Error(`[format=${formatSelector}] ${message}`);
+}
+
+async function spawnYtDlpStream(
+  executable: string,
+  args: string[]
+): Promise<NodeJS.ReadableStream> {
+  return await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
+    const child = spawn(executable, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+    const output = new PassThrough();
+
+    const stderrChunks: string[] = [];
+    let settled = false;
+
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      if (stderrChunks.join("").length < 4000) {
+        stderrChunks.push(chunk);
+      }
+    });
+
+    child.once("error", (error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      reject(error);
+    });
+
+    child.once("spawn", () => {
+      if (settled) {
+        return;
+      }
+
+      child.stdout.pipe(output);
+      settled = true;
+      resolve(output);
+    });
+
+    child.once("exit", (code) => {
+      if (!settled) {
+        if (code !== 0) {
+          settled = true;
+          reject(
+            new Error(
+              `yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`
+            )
+          );
+        }
+
+        return;
+      }
+
+      if (code === 0 || code === null) {
+        output.end();
+        return;
+      }
+
+      output.destroy(
+        new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
+      );
+    });
+
+    output.once("close", () => {
+      if (!child.killed) {
+        child.kill();
+      }
+    });
+  });
+}
+
+async function spawnYtDlpUrl(executable: string, args: string[]): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const child = spawn(executable, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk: string) => {
+      stdoutChunks.push(chunk);
+    });
+
+    child.stderr.on("data", (chunk: string) => {
+      if (stderrChunks.join("").length < 4000) {
+        stderrChunks.push(chunk);
+      }
+    });
+
+    child.once("error", reject);
+
+    child.once("exit", (code) => {
+      if (code && code !== 0) {
+        reject(
+          new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
+        );
+        return;
+      }
+
+      const resolvedUrl = stdoutChunks.join("").trim().split(/\r?\n/)[0]?.trim();
+
+      if (!resolvedUrl) {
+        reject(new Error(`yt-dlp did not return an audio URL${formatStderr(stderrChunks)}`));
+        return;
+      }
+
+      resolve(resolvedUrl);
+    });
+  });
 }

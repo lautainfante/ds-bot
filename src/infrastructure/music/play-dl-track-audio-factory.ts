@@ -15,6 +15,10 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       process.env.FFMPEG_PATH = ffmpegPath;
     }
 
+    console.info(
+      `[audio] creating resource track="${track.title}" source="${track.source}" mode="${track.streamHeaders ? "official-http" : "compat"}"`
+    );
+
     const ffmpegOutput = track.streamHeaders
       ? this.createTranscodedInputStream(
           await this.createOfficialHttpStream(track.audioUrl, track.streamHeaders),
@@ -39,12 +43,21 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     if (isYouTubeUrl(audioUrl)) {
       try {
         const directAudioUrl = await resolveYtDlpAudioUrl(audioUrl);
+        console.info(`[audio] youtube strategy=yt-dlp-direct-url url="${redactUrl(directAudioUrl)}"`);
         return this.createTranscodedUrlStream(directAudioUrl, settings);
       } catch (directUrlError) {
         try {
+          console.warn(
+            `[audio] youtube direct-url failed: ${directUrlError instanceof Error ? directUrlError.message : String(directUrlError)}`
+          );
+          console.info(`[audio] youtube strategy=yt-dlp-stdout`);
           return this.createTranscodedInputStream(await createYtDlpStream(audioUrl), settings);
         } catch (ytDlpError) {
           try {
+            console.warn(
+              `[audio] youtube yt-dlp stdout failed: ${ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError)}`
+            );
+            console.info(`[audio] youtube strategy=youtubei.js`);
             return this.createTranscodedInputStream(await downloadYouTubeAudio(audioUrl), settings);
           } catch (youtubeIError) {
             const directMessage =
@@ -104,6 +117,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     });
     const output = new PassThrough();
     const stderrChunks: string[] = [];
+    let outputBytes = 0;
 
     input.on("error", (error) => {
       if (!isBrokenPipeError(error)) {
@@ -131,10 +145,18 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     });
 
     ffmpeg.stdout.on("end", () => {
+      console.info(`[audio] ffmpeg(pipe) stdout end bytes=${outputBytes}`);
       output.end();
     });
 
+    ffmpeg.stdout.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+    });
+
     ffmpeg.on("exit", (code) => {
+      console.info(
+        `[audio] ffmpeg(pipe) exit code=${code ?? "null"} bytes=${outputBytes}${formatStderr(stderrChunks)}`
+      );
       if (code && code !== 0) {
         output.destroy(
           new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
@@ -167,6 +189,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     });
     const output = new PassThrough();
     const stderrChunks: string[] = [];
+    let outputBytes = 0;
 
     ffmpeg.on("error", (error) => {
       output.destroy(error);
@@ -180,10 +203,18 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     });
 
     ffmpeg.stdout.on("end", () => {
+      console.info(`[audio] ffmpeg(url) stdout end bytes=${outputBytes} input="${redactUrl(url)}"`);
       output.end();
     });
 
+    ffmpeg.stdout.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+    });
+
     ffmpeg.on("exit", (code) => {
+      console.info(
+        `[audio] ffmpeg(url) exit code=${code ?? "null"} bytes=${outputBytes} input="${redactUrl(url)}"${formatStderr(stderrChunks)}`
+      );
       if (code && code !== 0) {
         output.destroy(
           new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
@@ -218,14 +249,20 @@ function buildFfmpegArgsForUrlInput(url: string, settings: GuildSettings): strin
   return [
     "-reconnect",
     "1",
+    "-reconnect_at_eof",
+    "1",
     "-reconnect_streamed",
+    "1",
+    "-reconnect_on_network_error",
     "1",
     "-reconnect_delay_max",
     "5",
+    "-rw_timeout",
+    "15000000",
     "-analyzeduration",
     "0",
     "-loglevel",
-    "0",
+    "warning",
     "-i",
     url,
     ...buildFfmpegOutputArgs(settings)
@@ -244,6 +281,9 @@ function buildFfmpegOutputArgs(settings: GuildSettings): string[] {
   }
 
   return [
+    "-vn",
+    "-sn",
+    "-dn",
     ...(filters.length > 0 ? ["-af", filters.join(",")] : []),
     "-f",
     "s16le",
@@ -270,4 +310,14 @@ function isBrokenPipeError(error: unknown): boolean {
 function formatStderr(stderrChunks: string[]): string {
   const stderr = stderrChunks.join("").trim();
   return stderr.length > 0 ? `: ${stderr}` : "";
+}
+
+function redactUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.search = "";
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }

@@ -24,8 +24,11 @@ ENV YT_DLP_BGUTIL_SERVER_HOME=/opt/bgutil-ytdlp-pot-provider/server
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git python3 python3-pip \
-  && python3 -m pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider \
+  && apt-get install -y --no-install-recommends ca-certificates git python3 python3-venv \
+  && python3 -m venv /opt/yt-dlp-venv \
+  && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U pip setuptools wheel \
+  && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider \
+  && ln -sf /opt/yt-dlp-venv/bin/yt-dlp /usr/local/bin/yt-dlp \
   && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
   && cd /opt/bgutil-ytdlp-pot-provider/server \
   && npm install \

@@ -1,6 +1,10 @@
-FROM node:22-bookworm-slim AS build
+FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 RUN npm ci
@@ -11,7 +15,7 @@ COPY src ./src
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:20-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
 ENV YT_DLP_PATH=/usr/local/bin/yt-dlp

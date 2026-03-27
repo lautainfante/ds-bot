@@ -52,6 +52,8 @@ Variables:
 - `REGISTER_COMMANDS_ON_START`
 - `YOUTUBE_API_KEY` opcional por ahora
 - `YT_DLP_PATH` opcional si no usas `tools/yt-dlp.exe`
+- `YT_DLP_COOKIES_PATH` opcional si tienes un `cookies.txt`
+- `YT_DLP_COOKIES_BASE64` opcional para Railway/Render si prefieres pegar el archivo codificado
 
 ## Deploy 24/7
 
@@ -72,6 +74,25 @@ Este bot ya queda listo para deploy con Docker. El repo incluye [Dockerfile](/C:
 - `PREMIUM_GUILD_IDS` opcional
 - `REGISTER_COMMANDS_ON_START=true`
 - `YT_DLP_PATH` opcional, por defecto el contenedor usa `/usr/local/bin/yt-dlp`
+- `YT_DLP_COOKIES_PATH` opcional si montas un archivo de cookies
+- `YT_DLP_COOKIES_BASE64` recomendado en Railway cuando YouTube pide login
+
+### Cookies de YouTube en Railway
+
+Si Railway o el datacenter de tu host recibe el error `Sign in to confirm you're not a bot`, configura cookies para `yt-dlp`.
+
+1. Exporta tus cookies de YouTube en formato Netscape (`cookies.txt`).
+2. Convierte ese archivo a base64.
+3. Carga el resultado en Railway como `YT_DLP_COOKIES_BASE64`.
+4. Redeploy.
+
+Ejemplo en PowerShell para generar el base64:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\cookies.txt"))
+```
+
+Tambien puedes montar un archivo y usar `YT_DLP_COOKIES_PATH`, pero en Railway normalmente es mas simple usar `YT_DLP_COOKIES_BASE64`.
 
 ### Railway
 

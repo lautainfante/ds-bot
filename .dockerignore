@@ -4,6 +4,8 @@ dist
 .gitignore
 .env
 .env.*
+cookies.txt
+cookies.base64.txt
 npm-debug.log*
 tools
 coverage

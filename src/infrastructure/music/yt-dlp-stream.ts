@@ -1,14 +1,16 @@
-import { access } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
 const DEFAULT_LINUX_BINARY = "/usr/local/bin/yt-dlp";
+let cookiesPathPromise: Promise<string | undefined> | undefined;
 
 export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.ReadableStream> {
   const executable = await resolveYtDlpPath();
-  const args = [
+  const args = await createBaseArgs([
     "--no-playlist",
     "--quiet",
     "--no-warnings",
@@ -17,7 +19,7 @@ export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.Readab
     "-o",
     "-",
     normalizeYouTubeUrl(videoUrl)
-  ];
+  ]);
 
   return await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
     const child = spawn(executable, args, {
@@ -90,7 +92,7 @@ export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.Readab
 
 export async function resolveYtDlpAudioUrl(videoUrl: string): Promise<string> {
   const executable = await resolveYtDlpPath();
-  const args = [
+  const args = await createBaseArgs([
     "--no-playlist",
     "--quiet",
     "--no-warnings",
@@ -98,7 +100,7 @@ export async function resolveYtDlpAudioUrl(videoUrl: string): Promise<string> {
     "bestaudio/best",
     "-g",
     normalizeYouTubeUrl(videoUrl)
-  ];
+  ]);
 
   return await new Promise<string>((resolve, reject) => {
     const child = spawn(executable, args, {
@@ -167,6 +169,55 @@ async function resolveYtDlpPath(): Promise<string> {
   throw new Error(
     "No encontre yt-dlp. Configura YT_DLP_PATH o instala el binario en /usr/local/bin/yt-dlp."
   );
+}
+
+async function createBaseArgs(args: string[]): Promise<string[]> {
+  const cookiesPath = await resolveYtDlpCookiesPath();
+
+  if (!cookiesPath) {
+    return args;
+  }
+
+  return ["--cookies", cookiesPath, ...args];
+}
+
+async function resolveYtDlpCookiesPath(): Promise<string | undefined> {
+  if (!cookiesPathPromise) {
+    cookiesPathPromise = createCookiesPath();
+  }
+
+  return await cookiesPathPromise;
+}
+
+async function createCookiesPath(): Promise<string | undefined> {
+  const configuredPath = process.env.YT_DLP_COOKIES_PATH?.trim();
+
+  if (configuredPath) {
+    return configuredPath;
+  }
+
+  const base64Cookies = process.env.YT_DLP_COOKIES_BASE64?.trim();
+
+  if (!base64Cookies) {
+    return undefined;
+  }
+
+  const cookiesPath = path.join(os.tmpdir(), "yt-dlp-cookies.txt");
+
+  try {
+    const contents = Buffer.from(base64Cookies, "base64").toString("utf8").trim();
+
+    if (!contents) {
+      throw new Error("YT_DLP_COOKIES_BASE64 esta vacio despues de decodificar.");
+    }
+
+    await writeFile(cookiesPath, `${contents}\n`, "utf8");
+    return cookiesPath;
+  } catch (error) {
+    throw new Error(
+      `No pude preparar las cookies de yt-dlp: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 function normalizeYouTubeUrl(url: string): string {

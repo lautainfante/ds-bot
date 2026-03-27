@@ -11,6 +11,9 @@ export interface AppEnv {
   premiumGuildIds: string[];
   registerCommandsOnStart: boolean;
   youtubeApiKey?: string;
+  ytDlpPath?: string;
+  ytDlpCookiesPath?: string;
+  ytDlpCookiesBase64?: string;
 }
 
 export function loadEnv(): AppEnv {
@@ -28,7 +31,10 @@ export function loadEnv(): AppEnv {
       .map((guildId) => guildId.trim())
       .filter(Boolean) ?? [],
     registerCommandsOnStart: optionalEnv("REGISTER_COMMANDS_ON_START") !== "false",
-    youtubeApiKey: optionalEnv("YOUTUBE_API_KEY")
+    youtubeApiKey: optionalEnv("YOUTUBE_API_KEY"),
+    ytDlpPath: optionalEnv("YT_DLP_PATH"),
+    ytDlpCookiesPath: optionalEnv("YT_DLP_COOKIES_PATH"),
+    ytDlpCookiesBase64: optionalEnv("YT_DLP_COOKIES_BASE64")
   };
 }
 

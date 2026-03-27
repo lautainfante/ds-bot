@@ -55,6 +55,7 @@ Variables:
 - `YT_DLP_COOKIES_PATH` opcional si tienes un `cookies.txt`
 - `YT_DLP_COOKIES_BASE64` opcional para Railway/Render si prefieres pegar el archivo codificado
 - `YT_DLP_YOUTUBE_PO_TOKEN` opcional si YouTube sigue bloqueando aun con cookies
+- `YT_DLP_BGUTIL_SERVER_HOME` opcional si usas un proveedor `bgutil` fuera de la ruta por defecto del contenedor
 
 ## Deploy 24/7
 
@@ -78,6 +79,7 @@ Este bot ya queda listo para deploy con Docker. El repo incluye [Dockerfile](/C:
 - `YT_DLP_COOKIES_PATH` opcional si montas un archivo de cookies
 - `YT_DLP_COOKIES_BASE64` recomendado en Railway cuando YouTube pide login
 - `YT_DLP_YOUTUBE_PO_TOKEN` recomendado si cookies solas no alcanzan
+- `YT_DLP_BGUTIL_SERVER_HOME` no hace falta tocarlo si usas el `Dockerfile` de este repo
 
 ### Cookies de YouTube en Railway
 
@@ -107,6 +109,16 @@ YT_DLP_YOUTUBE_PO_TOKEN=
 ```
 
 El bot lo pasa a `yt-dlp` como extractor arg para el cliente `mweb`.
+
+### Proveedor automatico de PO Tokens
+
+El `Dockerfile` instala `bgutil-ytdlp-pot-provider` y prepara su script localmente en:
+
+```text
+/opt/bgutil-ytdlp-pot-provider/server
+```
+
+Eso permite que `yt-dlp` intente resolver PO Tokens automaticamente dentro del contenedor sin que tengas que generarlos a mano para cada video.
 
 ### Railway
 

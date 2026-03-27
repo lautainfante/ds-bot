@@ -19,14 +19,18 @@ FROM node:20-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
 ENV YT_DLP_PATH=/usr/local/bin/yt-dlp
+ENV YT_DLP_BGUTIL_SERVER_HOME=/opt/bgutil-ytdlp-pot-provider/server
 
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl \
-  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
-  && chmod +x /usr/local/bin/yt-dlp \
-  && apt-get purge -y --auto-remove curl \
+  && apt-get install -y --no-install-recommends ca-certificates git python3 python3-pip \
+  && python3 -m pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider \
+  && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
+  && cd /opt/bgutil-ytdlp-pot-provider/server \
+  && npm install \
+  && npx tsc \
+  && apt-get purge -y --auto-remove git \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/node_modules ./node_modules

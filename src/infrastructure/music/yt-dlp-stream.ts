@@ -90,10 +90,10 @@ async function resolveYtDlpPath(): Promise<string> {
 }
 
 async function createBaseArgs(args: string[]): Promise<string[]> {
-  const extractorArgs = buildYouTubeExtractorArgs();
+  const extractorArgs = buildExtractorArgs();
   const cookiesPath = await resolveYtDlpCookiesPath();
   const baseArgs = [
-    ...(extractorArgs ? ["--extractor-args", extractorArgs] : []),
+    ...extractorArgs.flatMap((extractorArg) => ["--extractor-args", extractorArg]),
     ...args
   ];
 
@@ -178,14 +178,22 @@ function looksLikeNetscapeCookies(value: string): boolean {
   return value.startsWith("# Netscape HTTP Cookie File");
 }
 
-function buildYouTubeExtractorArgs(): string | undefined {
+function buildExtractorArgs(): string[] {
+  const extractorArgs: string[] = [];
+  const bgutilServerHome = process.env.YT_DLP_BGUTIL_SERVER_HOME?.trim();
   const poToken = process.env.YT_DLP_YOUTUBE_PO_TOKEN?.trim();
 
-  if (!poToken) {
-    return "youtube:player-client=web_music,web";
+  if (bgutilServerHome) {
+    extractorArgs.push(`youtubepot-bgutilscript:server_home=${bgutilServerHome}`);
   }
 
-  return `youtube:player-client=web_music,web,mweb;po_token=mweb.gvs+${poToken}`;
+  if (!poToken) {
+    extractorArgs.push("youtube:player-client=web_music,web");
+    return extractorArgs;
+  }
+
+  extractorArgs.push(`youtube:player-client=web_music,web,mweb;po_token=mweb.gvs+${poToken}`);
+  return extractorArgs;
 }
 
 function wrapSelectorError(formatSelector: string, error: unknown): Error {

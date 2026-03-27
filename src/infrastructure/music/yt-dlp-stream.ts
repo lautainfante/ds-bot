@@ -88,6 +88,62 @@ export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.Readab
   });
 }
 
+export async function resolveYtDlpAudioUrl(videoUrl: string): Promise<string> {
+  const executable = await resolveYtDlpPath();
+  const args = [
+    "--no-playlist",
+    "--quiet",
+    "--no-warnings",
+    "-f",
+    "bestaudio/best",
+    "-g",
+    normalizeYouTubeUrl(videoUrl)
+  ];
+
+  return await new Promise<string>((resolve, reject) => {
+    const child = spawn(executable, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk: string) => {
+      stdoutChunks.push(chunk);
+    });
+
+    child.stderr.on("data", (chunk: string) => {
+      if (stderrChunks.join("").length < 4000) {
+        stderrChunks.push(chunk);
+      }
+    });
+
+    child.once("error", reject);
+
+    child.once("exit", (code) => {
+      if (code && code !== 0) {
+        reject(
+          new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
+        );
+        return;
+      }
+
+      const resolvedUrl = stdoutChunks.join("").trim().split(/\r?\n/)[0]?.trim();
+
+      if (!resolvedUrl) {
+        reject(new Error(`yt-dlp did not return an audio URL${formatStderr(stderrChunks)}`));
+        return;
+      }
+
+      resolve(resolvedUrl);
+    });
+  });
+}
+
 async function resolveYtDlpPath(): Promise<string> {
   const configuredPath = process.env.YT_DLP_PATH?.trim();
 

@@ -7,7 +7,7 @@ import { TrackAudioFactory } from "../../application/ports/services/track-audio-
 import { GuildSettings } from "../../domain/entities/guild-settings";
 import { Track } from "../../domain/entities/track";
 import { downloadYouTubeAudio } from "./youtube-innertube";
-import { createYtDlpStream } from "./yt-dlp-stream";
+import { createYtDlpStream, resolveYtDlpAudioUrl } from "./yt-dlp-stream";
 
 export class PlayDlTrackAudioFactory implements TrackAudioFactory {
   async create(track: Track, settings: GuildSettings): Promise<AudioResource<Track>> {
@@ -15,10 +15,12 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       process.env.FFMPEG_PATH = ffmpegPath;
     }
 
-    const input = track.streamHeaders
-      ? await this.createOfficialHttpStream(track.audioUrl, track.streamHeaders)
-      : await this.createCompatibilityStream(track.audioUrl);
-    const ffmpegOutput = this.createTranscodedStream(input, settings);
+    const ffmpegOutput = track.streamHeaders
+      ? this.createTranscodedInputStream(
+          await this.createOfficialHttpStream(track.audioUrl, track.streamHeaders),
+          settings
+        )
+      : await this.createCompatibilityOutput(track.audioUrl, settings);
 
     const resource = createAudioResource<Track>(ffmpegOutput, {
       inputType: StreamType.Raw,
@@ -30,25 +32,40 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     return resource;
   }
 
-  private async createCompatibilityStream(audioUrl: string): Promise<NodeJS.ReadableStream> {
+  private async createCompatibilityOutput(
+    audioUrl: string,
+    settings: GuildSettings
+  ): Promise<Readable> {
     if (isYouTubeUrl(audioUrl)) {
       try {
-        return await createYtDlpStream(audioUrl);
-      } catch (ytDlpError) {
+        const directAudioUrl = await resolveYtDlpAudioUrl(audioUrl);
+        return this.createTranscodedUrlStream(directAudioUrl, settings);
+      } catch (directUrlError) {
         try {
-          return await downloadYouTubeAudio(audioUrl);
-        } catch (youtubeIError) {
-          const ytDlpMessage = ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError);
-          const youtubeIMessage =
-            youtubeIError instanceof Error ? youtubeIError.message : String(youtubeIError);
+          return this.createTranscodedInputStream(await createYtDlpStream(audioUrl), settings);
+        } catch (ytDlpError) {
+          try {
+            return this.createTranscodedInputStream(await downloadYouTubeAudio(audioUrl), settings);
+          } catch (youtubeIError) {
+            const directMessage =
+              directUrlError instanceof Error ? directUrlError.message : String(directUrlError);
+            const ytDlpMessage =
+              ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError);
+            const youtubeIMessage =
+              youtubeIError instanceof Error ? youtubeIError.message : String(youtubeIError);
 
-          throw new Error(
-            `No pude abrir el stream de YouTube. yt-dlp: ${ytDlpMessage}. youtubei.js: ${youtubeIMessage}`
-          );
+            throw new Error(
+              `No pude abrir el stream de YouTube. direct-url: ${directMessage}. yt-dlp: ${ytDlpMessage}. youtubei.js: ${youtubeIMessage}`
+            );
+          }
         }
       }
     }
 
+    return this.createTranscodedInputStream(await this.createCompatibilityStream(audioUrl), settings);
+  }
+
+  private async createCompatibilityStream(audioUrl: string): Promise<NodeJS.ReadableStream> {
     const source = await (play as any).stream(audioUrl, {
       discordPlayerCompatibility: true
     });
@@ -71,7 +88,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     return Readable.fromWeb(response.body as any);
   }
 
-  private createTranscodedStream(
+  private createTranscodedInputStream(
     input: NodeJS.ReadableStream,
     settings: GuildSettings
   ): Readable {
@@ -81,7 +98,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       throw new Error("FFmpeg is not configured");
     }
 
-    const ffmpeg = spawn(executable, buildFfmpegArgs(settings), {
+    const ffmpeg = spawn(executable, buildFfmpegArgsForPipeInput(settings), {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     });
@@ -136,9 +153,86 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
 
     return output;
   }
+
+  private createTranscodedUrlStream(url: string, settings: GuildSettings): Readable {
+    const executable = process.env.FFMPEG_PATH || ffmpegPath;
+
+    if (!executable) {
+      throw new Error("FFmpeg is not configured");
+    }
+
+    const ffmpeg = spawn(executable, buildFfmpegArgsForUrlInput(url, settings), {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+    const output = new PassThrough();
+    const stderrChunks: string[] = [];
+
+    ffmpeg.on("error", (error) => {
+      output.destroy(error);
+    });
+
+    ffmpeg.stderr.setEncoding("utf8");
+    ffmpeg.stderr.on("data", (chunk: string) => {
+      if (stderrChunks.join("").length < 4000) {
+        stderrChunks.push(chunk);
+      }
+    });
+
+    ffmpeg.stdout.on("end", () => {
+      output.end();
+    });
+
+    ffmpeg.on("exit", (code) => {
+      if (code && code !== 0) {
+        output.destroy(
+          new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
+        );
+      }
+    });
+
+    output.once("close", () => {
+      if (!ffmpeg.killed) {
+        ffmpeg.kill();
+      }
+    });
+
+    ffmpeg.stdout.pipe(output);
+    return output;
+  }
 }
 
-function buildFfmpegArgs(settings: GuildSettings): string[] {
+function buildFfmpegArgsForPipeInput(settings: GuildSettings): string[] {
+  return [
+    "-analyzeduration",
+    "0",
+    "-loglevel",
+    "0",
+    "-i",
+    "pipe:0",
+    ...buildFfmpegOutputArgs(settings)
+  ];
+}
+
+function buildFfmpegArgsForUrlInput(url: string, settings: GuildSettings): string[] {
+  return [
+    "-reconnect",
+    "1",
+    "-reconnect_streamed",
+    "1",
+    "-reconnect_delay_max",
+    "5",
+    "-analyzeduration",
+    "0",
+    "-loglevel",
+    "0",
+    "-i",
+    url,
+    ...buildFfmpegOutputArgs(settings)
+  ];
+}
+
+function buildFfmpegOutputArgs(settings: GuildSettings): string[] {
   const filters: string[] = [];
 
   if (settings.bassBoost > 0) {
@@ -150,12 +244,6 @@ function buildFfmpegArgs(settings: GuildSettings): string[] {
   }
 
   return [
-    "-analyzeduration",
-    "0",
-    "-loglevel",
-    "0",
-    "-i",
-    "pipe:0",
     ...(filters.length > 0 ? ["-af", filters.join(",")] : []),
     "-f",
     "s16le",

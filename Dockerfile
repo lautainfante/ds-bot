@@ -17,26 +17,17 @@ RUN npm prune --omit=dev
 
 FROM node:20-bookworm-slim AS runtime
 
+ENV NODE_ENV=production
 ENV YT_DLP_PATH=/usr/local/bin/yt-dlp
-ENV YT_DLP_BGUTIL_SERVER_HOME=/opt/bgutil-ytdlp-pot-provider/server
-ENV BGUTIL_VERSION=1.3.1
 
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git python3 python3-venv \
-  && python3 -m venv /opt/yt-dlp-venv \
-  && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U pip setuptools wheel \
-  && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider \
-  && ln -sf /opt/yt-dlp-venv/bin/yt-dlp /usr/local/bin/yt-dlp \
-  && git clone --depth 1 --branch ${BGUTIL_VERSION} https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
-  && cd /opt/bgutil-ytdlp-pot-provider/server \
-  && npm ci --include=dev \
-  && npm exec tsc \
-  && apt-get purge -y --auto-remove git \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp \
+  && apt-get purge -y --auto-remove curl \
   && rm -rf /var/lib/apt/lists/*
-
-ENV NODE_ENV=production
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

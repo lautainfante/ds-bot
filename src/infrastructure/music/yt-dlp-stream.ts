@@ -6,7 +6,6 @@ import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
 const DEFAULT_LINUX_BINARY = "/usr/local/bin/yt-dlp";
-const DEFAULT_BGUTIL_SERVER_HOME = "/opt/bgutil-ytdlp-pot-provider/server";
 const AUDIO_FORMAT_SELECTORS = [
   "bestaudio[acodec!=none]/bestaudio*/ba",
   "140/251/250/249",
@@ -40,31 +39,6 @@ export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.Readab
   throw lastError ?? new Error("yt-dlp no pudo abrir el stream.");
 }
 
-export async function resolveYtDlpAudioUrl(videoUrl: string): Promise<string> {
-  const executable = await resolveYtDlpPath();
-  let lastError: Error | undefined;
-
-  for (const formatSelector of AUDIO_FORMAT_SELECTORS) {
-    try {
-      const args = await createBaseArgs([
-        "--no-playlist",
-        "--quiet",
-        "--no-warnings",
-        "-f",
-        formatSelector,
-        "-g",
-        normalizeYouTubeUrl(videoUrl)
-      ]);
-
-      return await spawnYtDlpUrl(executable, args);
-    } catch (error) {
-      lastError = wrapSelectorError(formatSelector, error);
-    }
-  }
-
-  throw lastError ?? new Error("yt-dlp no pudo resolver una URL de audio.");
-}
-
 async function resolveYtDlpPath(): Promise<string> {
   const configuredPath = process.env.YT_DLP_PATH?.trim();
 
@@ -91,12 +65,8 @@ async function resolveYtDlpPath(): Promise<string> {
 }
 
 async function createBaseArgs(args: string[]): Promise<string[]> {
-  const extractorArgs = buildExtractorArgs();
   const cookiesPath = await resolveYtDlpCookiesPath();
-  const baseArgs = [
-    ...extractorArgs.flatMap((extractorArg) => ["--extractor-args", extractorArg]),
-    ...args
-  ];
+  const baseArgs = [...args];
 
   if (!cookiesPath) {
     return baseArgs;
@@ -179,46 +149,6 @@ function looksLikeNetscapeCookies(value: string): boolean {
   return value.startsWith("# Netscape HTTP Cookie File");
 }
 
-function buildExtractorArgs(): string[] {
-  const extractorArgs: string[] = [];
-  const bgutilServerHome = resolveBgutilServerHome();
-  const poToken = process.env.YT_DLP_YOUTUBE_PO_TOKEN?.trim();
-
-  if (bgutilServerHome) {
-    extractorArgs.push(`youtubepot-bgutilscript:server_home=${bgutilServerHome}`);
-  } else if (process.platform !== "win32") {
-    extractorArgs.push(`youtubepot-bgutilscript:server_home=${DEFAULT_BGUTIL_SERVER_HOME}`);
-  }
-
-  if (!poToken) {
-    extractorArgs.push("youtube:player-client=web_music,web");
-    return extractorArgs;
-  }
-
-  extractorArgs.push(`youtube:player-client=web_music,web,mweb;po_token=mweb.gvs+${poToken}`);
-  return extractorArgs;
-}
-
-function resolveBgutilServerHome(): string | undefined {
-  const configuredServerHome = process.env.YT_DLP_BGUTIL_SERVER_HOME?.trim();
-
-  if (configuredServerHome) {
-    return configuredServerHome;
-  }
-
-  const legacyScriptPath = process.env.YT_DLP_BGUTIL_SCRIPT_PATH?.trim();
-
-  if (!legacyScriptPath) {
-    return undefined;
-  }
-
-  if (legacyScriptPath.endsWith(".js")) {
-    return path.resolve(legacyScriptPath, "..", "..");
-  }
-
-  return legacyScriptPath;
-}
-
 function wrapSelectorError(formatSelector: string, error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   return new Error(`[format=${formatSelector}] ${message}`);
@@ -292,51 +222,6 @@ async function spawnYtDlpStream(
       if (!child.killed) {
         child.kill();
       }
-    });
-  });
-}
-
-async function spawnYtDlpUrl(executable: string, args: string[]): Promise<string> {
-  return await new Promise<string>((resolve, reject) => {
-    const child = spawn(executable, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true
-    });
-
-    const stdoutChunks: string[] = [];
-    const stderrChunks: string[] = [];
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-
-    child.stdout.on("data", (chunk: string) => {
-      stdoutChunks.push(chunk);
-    });
-
-    child.stderr.on("data", (chunk: string) => {
-      if (stderrChunks.join("").length < 4000) {
-        stderrChunks.push(chunk);
-      }
-    });
-
-    child.once("error", reject);
-
-    child.once("exit", (code) => {
-      if (code && code !== 0) {
-        reject(
-          new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
-        );
-        return;
-      }
-
-      const resolvedUrl = stdoutChunks.join("").trim().split(/\r?\n/)[0]?.trim();
-
-      if (!resolvedUrl) {
-        reject(new Error(`yt-dlp did not return an audio URL${formatStderr(stderrChunks)}`));
-        return;
-      }
-
-      resolve(resolvedUrl);
     });
   });
 }

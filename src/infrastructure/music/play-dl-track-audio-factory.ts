@@ -7,7 +7,7 @@ import { TrackAudioFactory } from "../../application/ports/services/track-audio-
 import { GuildSettings } from "../../domain/entities/guild-settings";
 import { Track } from "../../domain/entities/track";
 import { downloadYouTubeAudio } from "./youtube-innertube";
-import { createYtDlpStream, resolveYtDlpAudioUrl } from "./yt-dlp-stream";
+import { createYtDlpStream } from "./yt-dlp-stream";
 
 export class PlayDlTrackAudioFactory implements TrackAudioFactory {
   async create(track: Track, settings: GuildSettings): Promise<AudioResource<Track>> {
@@ -20,7 +20,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     );
 
     const ffmpegOutput = track.streamHeaders
-      ? this.createTranscodedInputStream(
+      ? this.createTranscodedStream(
           await this.createOfficialHttpStream(track.audioUrl, track.streamHeaders),
           settings
         )
@@ -42,40 +42,30 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
   ): Promise<Readable> {
     if (isYouTubeUrl(audioUrl)) {
       try {
-        const directAudioUrl = await resolveYtDlpAudioUrl(audioUrl);
-        console.info(`[audio] youtube strategy=yt-dlp-direct-url url="${redactUrl(directAudioUrl)}"`);
-        return this.createTranscodedUrlStream(directAudioUrl, settings);
-      } catch (directUrlError) {
+        console.info(`[audio] youtube strategy=yt-dlp-stdout`);
+        return this.createTranscodedStream(await createYtDlpStream(audioUrl), settings);
+      } catch (ytDlpError) {
         try {
           console.warn(
-            `[audio] youtube direct-url failed: ${directUrlError instanceof Error ? directUrlError.message : String(directUrlError)}`
+            `[audio] youtube yt-dlp failed: ${ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError)}`
           );
-          console.info(`[audio] youtube strategy=yt-dlp-stdout`);
-          return this.createTranscodedInputStream(await createYtDlpStream(audioUrl), settings);
-        } catch (ytDlpError) {
-          try {
-            console.warn(
-              `[audio] youtube yt-dlp stdout failed: ${ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError)}`
-            );
-            console.info(`[audio] youtube strategy=youtubei.js`);
-            return this.createTranscodedInputStream(await downloadYouTubeAudio(audioUrl), settings);
-          } catch (youtubeIError) {
-            const directMessage =
-              directUrlError instanceof Error ? directUrlError.message : String(directUrlError);
-            const ytDlpMessage =
-              ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError);
-            const youtubeIMessage =
-              youtubeIError instanceof Error ? youtubeIError.message : String(youtubeIError);
+          console.info(`[audio] youtube strategy=youtubei.js`);
+          return this.createTranscodedStream(await downloadYouTubeAudio(audioUrl), settings);
+        } catch (youtubeIError) {
+          const ytDlpMessage =
+            ytDlpError instanceof Error ? ytDlpError.message : String(ytDlpError);
+          const youtubeIMessage =
+            youtubeIError instanceof Error ? youtubeIError.message : String(youtubeIError);
+          const authHint = buildYouTubeAuthHint(ytDlpMessage, youtubeIMessage);
 
-            throw new Error(
-              `No pude abrir el stream de YouTube. direct-url: ${directMessage}. yt-dlp: ${ytDlpMessage}. youtubei.js: ${youtubeIMessage}`
-            );
-          }
+          throw new Error(
+            `No pude abrir el stream de YouTube. yt-dlp: ${ytDlpMessage}. youtubei.js: ${youtubeIMessage}${authHint}`
+          );
         }
       }
     }
 
-    return this.createTranscodedInputStream(await this.createCompatibilityStream(audioUrl), settings);
+    return this.createTranscodedStream(await this.createCompatibilityStream(audioUrl), settings);
   }
 
   private async createCompatibilityStream(audioUrl: string): Promise<NodeJS.ReadableStream> {
@@ -101,7 +91,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     return Readable.fromWeb(response.body as any);
   }
 
-  private createTranscodedInputStream(
+  private createTranscodedStream(
     input: NodeJS.ReadableStream,
     settings: GuildSettings
   ): Readable {
@@ -111,7 +101,7 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       throw new Error("FFmpeg is not configured");
     }
 
-    const ffmpeg = spawn(executable, buildFfmpegArgsForPipeInput(settings), {
+    const ffmpeg = spawn(executable, buildFfmpegArgs(settings), {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     });
@@ -144,18 +134,18 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       }
     });
 
-    ffmpeg.stdout.on("end", () => {
-      console.info(`[audio] ffmpeg(pipe) stdout end bytes=${outputBytes}`);
-      output.end();
-    });
-
     ffmpeg.stdout.on("data", (chunk: Buffer) => {
       outputBytes += chunk.length;
     });
 
+    ffmpeg.stdout.on("end", () => {
+      console.info(`[audio] ffmpeg stdout end bytes=${outputBytes}`);
+      output.end();
+    });
+
     ffmpeg.on("exit", (code) => {
       console.info(
-        `[audio] ffmpeg(pipe) exit code=${code ?? "null"} bytes=${outputBytes}${formatStderr(stderrChunks)}`
+        `[audio] ffmpeg exit code=${code ?? "null"} bytes=${outputBytes}${formatStderr(stderrChunks)}`
       );
       if (code && code !== 0) {
         output.destroy(
@@ -175,65 +165,9 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
 
     return output;
   }
-
-  private createTranscodedUrlStream(url: string, settings: GuildSettings): Readable {
-    const executable = process.env.FFMPEG_PATH || ffmpegPath;
-
-    if (!executable) {
-      throw new Error("FFmpeg is not configured");
-    }
-
-    const ffmpeg = spawn(executable, buildFfmpegArgsForUrlInput(url, settings), {
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true
-    });
-    const output = new PassThrough();
-    const stderrChunks: string[] = [];
-    let outputBytes = 0;
-
-    ffmpeg.on("error", (error) => {
-      output.destroy(error);
-    });
-
-    ffmpeg.stderr.setEncoding("utf8");
-    ffmpeg.stderr.on("data", (chunk: string) => {
-      if (stderrChunks.join("").length < 4000) {
-        stderrChunks.push(chunk);
-      }
-    });
-
-    ffmpeg.stdout.on("end", () => {
-      console.info(`[audio] ffmpeg(url) stdout end bytes=${outputBytes} input="${redactUrl(url)}"`);
-      output.end();
-    });
-
-    ffmpeg.stdout.on("data", (chunk: Buffer) => {
-      outputBytes += chunk.length;
-    });
-
-    ffmpeg.on("exit", (code) => {
-      console.info(
-        `[audio] ffmpeg(url) exit code=${code ?? "null"} bytes=${outputBytes} input="${redactUrl(url)}"${formatStderr(stderrChunks)}`
-      );
-      if (code && code !== 0) {
-        output.destroy(
-          new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
-        );
-      }
-    });
-
-    output.once("close", () => {
-      if (!ffmpeg.killed) {
-        ffmpeg.kill();
-      }
-    });
-
-    ffmpeg.stdout.pipe(output);
-    return output;
-  }
 }
 
-function buildFfmpegArgsForPipeInput(settings: GuildSettings): string[] {
+function buildFfmpegArgs(settings: GuildSettings): string[] {
   return [
     "-analyzeduration",
     "0",
@@ -241,50 +175,10 @@ function buildFfmpegArgsForPipeInput(settings: GuildSettings): string[] {
     "0",
     "-i",
     "pipe:0",
-    ...buildFfmpegOutputArgs(settings)
-  ];
-}
-
-function buildFfmpegArgsForUrlInput(url: string, settings: GuildSettings): string[] {
-  return [
-    "-reconnect",
-    "1",
-    "-reconnect_at_eof",
-    "1",
-    "-reconnect_streamed",
-    "1",
-    "-reconnect_on_network_error",
-    "1",
-    "-reconnect_delay_max",
-    "5",
-    "-rw_timeout",
-    "15000000",
-    "-analyzeduration",
-    "0",
-    "-loglevel",
-    "warning",
-    "-i",
-    url,
-    ...buildFfmpegOutputArgs(settings)
-  ];
-}
-
-function buildFfmpegOutputArgs(settings: GuildSettings): string[] {
-  const filters: string[] = [];
-
-  if (settings.bassBoost > 0) {
-    filters.push(`bass=g=${clamp(settings.bassBoost, 0, 20)}`);
-  }
-
-  if (settings.nightcore) {
-    filters.push("asetrate=48000*1.15,aresample=48000,atempo=1");
-  }
-
-  return [
     "-vn",
     "-sn",
     "-dn",
-    ...(filters.length > 0 ? ["-af", filters.join(",")] : []),
+    ...buildAudioFilterArgs(settings),
     "-f",
     "s16le",
     "-ar",
@@ -312,12 +206,26 @@ function formatStderr(stderrChunks: string[]): string {
   return stderr.length > 0 ? `: ${stderr}` : "";
 }
 
-function redactUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    parsed.search = "";
-    return parsed.toString();
-  } catch {
-    return url;
+function buildAudioFilterArgs(settings: GuildSettings): string[] {
+  const filters: string[] = [];
+
+  if (settings.bassBoost > 0) {
+    filters.push(`bass=g=${clamp(settings.bassBoost, 0, 20)}`);
   }
+
+  if (settings.nightcore) {
+    filters.push("asetrate=48000*1.15,aresample=48000,atempo=1");
+  }
+
+  return filters.length > 0 ? ["-af", filters.join(",")] : [];
+}
+
+function buildYouTubeAuthHint(...messages: string[]): string {
+  const combined = messages.join(" ").toLowerCase();
+
+  if (!combined.includes("sign in to confirm")) {
+    return "";
+  }
+
+  return " Configura o renueva YT_DLP_COOKIES_PATH con un cookies.txt Netscape valido.";
 }

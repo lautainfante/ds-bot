@@ -3,3 +3,4 @@ dist
 .env
 cookies.txt
 cookies.base64.txt
+secrets/

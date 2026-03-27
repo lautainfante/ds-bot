@@ -17,6 +17,10 @@ import { createLogger } from "../shared/logger";
 export async function createApp(): Promise<DiscordBot> {
   const env = loadEnv();
   const logger = createLogger();
+  logger.info("yt-dlp runtime configuration", {
+    path: env.ytDlpPath ?? "/usr/local/bin/yt-dlp",
+    cookies: env.ytDlpCookiesPath ? "path" : env.ytDlpCookiesBase64 ? "base64" : "none"
+  });
   logger.info("Voice dependency report", {
     report: generateDependencyReport()
   });

@@ -1,175 +1,132 @@
 # Discord Music Bot
 
-Base en TypeScript para un bot de musica de Discord con dos planes:
-
-- `free`: puede reproducir, buscar, encolar y administrar cola.
-- `premium`: desbloquea volumen, bass boost y modo nightcore.
-
-## Fuentes soportadas
-
-- YouTube
-- YouTube Music (links `music.youtube.com`)
-
-Fuentes no implementadas en este proyecto:
-
-- Spotify
-- SoundCloud
+Bot de musica para Discord en TypeScript con plan `free` y `premium`.
 
 ## Stack
 
-- `discord.js` para slash commands y eventos.
-- `@discordjs/voice` para voz.
-- `play-dl` para resolucion de YouTube.
-- `yt-dlp` como backend principal de extraccion para YouTube y YouTube Music.
-- `ffmpeg-static` + `prism-media` para filtros y transformaciones.
+- `discord.js` para slash commands y eventos
+- `@discordjs/voice` para voz
+- `yt-dlp` como extractor principal para YouTube y YouTube Music
+- `youtubei.js` como fallback de compatibilidad
+- `ffmpeg-static` + `prism-media` para transcodificacion y filtros
 
-## Estructura
+## Desarrollo local
 
-```text
-src/
-  application/    # casos de uso y puertos
-  domain/         # entidades, reglas y policy free/premium
-  infrastructure/ # Discord, audio, providers y repos
-  shared/         # logger/utilidades
-```
+1. Copia `.env.example` a `.env`.
+2. Completa las variables.
+3. Instala dependencias con `npm.cmd install`.
+4. Inicia en desarrollo con `npm.cmd run dev`.
 
-## Arranque
-
-1. Copia `.env.example` a `.env` y completa los valores.
-2. Instala dependencias con `npm.cmd install`.
-3. Inicia en desarrollo con `npm.cmd run dev`.
-
-Si PowerShell bloquea `npm`, usa `npm.cmd`.
-
-Variables:
-
-- `DISCORD_TOKEN`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_GUILD_ID` recomendado para desarrollo, registra comandos instantaneamente en tu servidor
-- `DISCORD_OWNER_ID`
-- `PREMIUM_PORTAL_URL`
-- `PREMIUM_GUILD_IDS`
-- `REGISTER_COMMANDS_ON_START`
-- `YOUTUBE_API_KEY` opcional por ahora
-- `YT_DLP_PATH` opcional si no usas `tools/yt-dlp.exe`
-- `YT_DLP_COOKIES_PATH` opcional si tienes un `cookies.txt`
-- `YT_DLP_COOKIES_BASE64` opcional para Railway/Render si prefieres pegar el archivo codificado
-- `YT_DLP_YOUTUBE_PO_TOKEN` opcional si YouTube sigue bloqueando aun con cookies
-- `YT_DLP_BGUTIL_SERVER_HOME` opcional si usas `bgutil` fuera de la ruta por defecto del contenedor
-
-## Deploy 24/7
-
-Este bot ya queda listo para deploy con Docker. El repo incluye [Dockerfile](/C:/Users/usuario/Desktop/Develop/ds-bot/Dockerfile), que:
-
-- compila TypeScript
-- instala dependencias de produccion
-- descarga `yt-dlp` para Linux
-- arranca con `node dist/index.js`
-
-### Variables minimas en produccion
-
-- `DISCORD_TOKEN`
-- `DISCORD_CLIENT_ID`
-- `DISCORD_OWNER_ID`
-- `DISCORD_GUILD_ID` opcional si quieres registro rapido en un servidor de pruebas
-- `PREMIUM_PORTAL_URL` opcional
-- `PREMIUM_GUILD_IDS` opcional
-- `REGISTER_COMMANDS_ON_START=true`
-- `YT_DLP_PATH` opcional, por defecto el contenedor usa `/usr/local/bin/yt-dlp`
-- `YT_DLP_COOKIES_PATH` opcional si montas un archivo de cookies
-- `YT_DLP_COOKIES_BASE64` recomendado en Railway cuando YouTube pide login
-- `YT_DLP_YOUTUBE_PO_TOKEN` recomendado si cookies solas no alcanzan
-- `YT_DLP_BGUTIL_SERVER_HOME` no hace falta tocarlo si usas el `Dockerfile` de este repo
-
-### Cookies de YouTube en Railway
-
-Si Railway o el datacenter de tu host recibe el error `Sign in to confirm you're not a bot`, configura cookies para `yt-dlp`.
-
-1. Exporta tus cookies de YouTube en formato Netscape (`cookies.txt`).
-2. Convierte ese archivo a base64.
-3. Carga el resultado en Railway como `YT_DLP_COOKIES_BASE64`.
-4. Redeploy.
-
-Ejemplo en PowerShell para generar el base64:
+Validaciones:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\cookies.txt"))
+npm.cmd run check
+npm.cmd run build
+npm.cmd run test
 ```
 
-Tambien puedes montar un archivo y usar `YT_DLP_COOKIES_PATH`, pero en Railway normalmente es mas simple usar `YT_DLP_COOKIES_BASE64`.
+## Variables de entorno
 
-### PO Token de YouTube
+Obligatorias:
 
-Si incluso con cookies sigues viendo `Sign in to confirm you're not a bot`, YouTube probablemente esta exigiendo un `PO Token` para streaming desde ese datacenter.
+- `DISCORD_TOKEN`
+- `DISCORD_CLIENT_ID`
+- `DISCORD_OWNER_ID`
+- `REGISTER_COMMANDS_ON_START=true`
 
-Carga ese valor en:
+Opcionales:
 
-```text
-YT_DLP_YOUTUBE_PO_TOKEN=
-```
+- `DISCORD_GUILD_ID` para staging o pruebas rapidas
+- `PREMIUM_PORTAL_URL`
+- `PREMIUM_GUILD_IDS`
+- `YOUTUBE_API_KEY`
+- `YT_DLP_PATH` por defecto `/usr/local/bin/yt-dlp`
+- `YT_DLP_COOKIES_PATH` recomendado en produccion: `/opt/ds-bot/secrets/youtube-cookies.txt`
+- `YT_DLP_COOKIES_BASE64` solo como compatibilidad si no quieres montar archivo
 
-El bot lo pasa a `yt-dlp` como extractor arg para el cliente `mweb`.
+## Pipeline de audio
 
-### Proveedor automatico de PO Tokens
+El flujo de produccion queda deliberadamente simple:
 
-El `Dockerfile` instala `bgutil-ytdlp-pot-provider` y prepara su script localmente en:
+1. `yt-dlp` abre el stream de audio por stdout
+2. `ffmpeg` lo transcodifica a PCM
+3. si `yt-dlp` falla, el bot intenta `youtubei.js`
 
-```text
-/opt/bgutil-ytdlp-pot-provider/server
-```
+No se usa:
 
-Eso permite que `yt-dlp` intente resolver PO Tokens automaticamente dentro del contenedor sin que tengas que generarlos a mano para cada video.
+- resolucion directa con `yt-dlp -g`
+- `PO token`
+- `bgutil`
 
-### Railway
+## Docker
 
-Recomendado si quieres subirlo rapido y olvidarte del servidor:
+El repo incluye:
 
-1. Sube el repo a GitHub.
-2. Crea un proyecto nuevo en Railway.
-3. Conecta el repo.
-4. Railway detecta el `Dockerfile` y lo usa para build.
-5. Carga las variables del `.env` en el panel de Variables.
-6. Deja una sola replica/instance.
+- [Dockerfile](/C:/Users/usuario/Desktop/Develop/ds-bot/Dockerfile)
+- [docker-compose.yml](/C:/Users/usuario/Desktop/Develop/ds-bot/docker-compose.yml)
 
-### Render
-
-Usa un `Background Worker` o un `Private Service`, no un sitio estatico.
-
-1. Sube el repo a GitHub.
-2. Crea un `Background Worker`.
-3. Selecciona Docker como metodo de deploy.
-4. Carga variables de entorno.
-5. Desactiva cualquier healthcheck HTTP, porque este bot no expone servidor web.
-
-### VPS
-
-Si quieres pagar menos y tener control total:
-
-1. Crea una VPS Ubuntu o Debian.
-2. Instala Docker.
-3. Clona el repo.
-4. Ejecuta:
+Build local:
 
 ```bash
 docker build -t ds-bot .
-docker run -d --name ds-bot --restart unless-stopped --env-file .env ds-bot
 ```
 
-Con eso el bot vuelve a levantarse solo si reinicia la maquina.
+## Produccion en Hetzner VPS
 
-## Monetizacion
+Target recomendado:
 
-La monetizacion se resolvio con una capa de entitlements desacoplada:
+- Ubuntu 24.04 LTS
+- 2 vCPU
+- 4 GB RAM
 
-- `GuildSubscriptionRepository` decide si un servidor es `FREE` o `PREMIUM`.
-- `FeaturePolicy` bloquea solo features premium.
-- Hoy hay una implementacion en memoria y un comando administrativo para conceder premium.
+Layout operativo:
 
-Para cobrar de verdad, conecta Stripe, Mercado Pago, Paddle o el modelo de monetizacion de Discord sobre el repositorio de suscripciones sin tocar el reproductor ni los comandos.
+- codigo: `/opt/ds-bot/app`
+- env: `/opt/ds-bot/app/.env`
+- cookies: `/opt/ds-bot/app/secrets/youtube-cookies.txt`
 
-## Siguientes pasos recomendados
+Pasos:
 
-- Reemplazar los repositorios en memoria por PostgreSQL o Redis.
-- Agregar webhooks de pago para activar/desactivar premium.
-- Registrar telemetria y limites por guild.
-- Agregar dashboard web para onboarding y upsell.
+1. Instala Docker y Docker Compose plugin.
+2. Clona el repo en `/opt/ds-bot/app`.
+3. Crea `secrets/youtube-cookies.txt` con cookies Netscape de YouTube.
+4. Copia `.env.example` a `.env` y ajusta valores.
+5. Levanta el bot:
+
+```bash
+docker compose up -d --build
+```
+
+Ver logs:
+
+```bash
+docker compose logs -f bot
+```
+
+Reiniciar:
+
+```bash
+docker compose restart bot
+```
+
+Con `restart: unless-stopped`, el bot vuelve a levantar tras reinicio de la VPS.
+
+## Cookies de YouTube
+
+Si YouTube pide validacion adicional, exporta cookies en formato Netscape y guardalas en:
+
+```text
+/opt/ds-bot/app/secrets/youtube-cookies.txt
+```
+
+Luego reinicia el contenedor:
+
+```bash
+docker compose restart bot
+```
+
+`YT_DLP_COOKIES_BASE64` sigue soportado, pero no es el camino principal para produccion.
+
+## Criterio de operacion
+
+El deploy principal pensado para este repo es VPS simple con Docker. Railway queda fuera del camino principal para evitar complejidad adicional alrededor de YouTube.

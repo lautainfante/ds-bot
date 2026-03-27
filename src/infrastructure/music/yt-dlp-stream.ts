@@ -128,10 +128,10 @@ async function createCookiesPath(): Promise<string | undefined> {
   const cookiesPath = path.join(os.tmpdir(), "yt-dlp-cookies.txt");
 
   try {
-    const contents = Buffer.from(base64Cookies, "base64").toString("utf8").trim();
+    const contents = decodeCookiesEnvValue(base64Cookies);
 
     if (!contents) {
-      throw new Error("YT_DLP_COOKIES_BASE64 esta vacio despues de decodificar.");
+      throw new Error("YT_DLP_COOKIES_BASE64 esta vacio despues de procesarlo.");
     }
 
     await writeFile(cookiesPath, `${contents}\n`, "utf8");
@@ -154,6 +154,28 @@ function normalizeYouTubeUrl(url: string): string {
 function formatStderr(stderrChunks: string[]): string {
   const stderr = stderrChunks.join("").trim();
   return stderr.length > 0 ? `: ${stderr}` : "";
+}
+
+function decodeCookiesEnvValue(value: string): string {
+  const trimmed = value.trim();
+
+  if (looksLikeNetscapeCookies(trimmed)) {
+    return trimmed;
+  }
+
+  const decoded = Buffer.from(trimmed, "base64").toString("utf8").trim();
+
+  if (looksLikeNetscapeCookies(decoded)) {
+    return decoded;
+  }
+
+  throw new Error(
+    "El valor de YT_DLP_COOKIES_BASE64 no es un cookies.txt Netscape valido ni un base64 de ese archivo."
+  );
+}
+
+function looksLikeNetscapeCookies(value: string): boolean {
+  return value.startsWith("# Netscape HTTP Cookie File");
 }
 
 function buildYouTubeExtractorArgs(): string | undefined {

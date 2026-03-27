@@ -90,13 +90,18 @@ async function resolveYtDlpPath(): Promise<string> {
 }
 
 async function createBaseArgs(args: string[]): Promise<string[]> {
+  const extractorArgs = buildYouTubeExtractorArgs();
   const cookiesPath = await resolveYtDlpCookiesPath();
+  const baseArgs = [
+    ...(extractorArgs ? ["--extractor-args", extractorArgs] : []),
+    ...args
+  ];
 
   if (!cookiesPath) {
-    return args;
+    return baseArgs;
   }
 
-  return ["--cookies", cookiesPath, ...args];
+  return ["--cookies", cookiesPath, ...baseArgs];
 }
 
 async function resolveYtDlpCookiesPath(): Promise<string | undefined> {
@@ -149,6 +154,16 @@ function normalizeYouTubeUrl(url: string): string {
 function formatStderr(stderrChunks: string[]): string {
   const stderr = stderrChunks.join("").trim();
   return stderr.length > 0 ? `: ${stderr}` : "";
+}
+
+function buildYouTubeExtractorArgs(): string | undefined {
+  const poToken = process.env.YT_DLP_YOUTUBE_PO_TOKEN?.trim();
+
+  if (!poToken) {
+    return "youtube:player-client=web_music,web";
+  }
+
+  return `youtube:player-client=web_music,web,mweb;po_token=mweb.gvs+${poToken}`;
 }
 
 function wrapSelectorError(formatSelector: string, error: unknown): Error {

@@ -14,6 +14,7 @@ export interface AppEnv {
   ytDlpPath?: string;
   ytDlpCookiesPath?: string;
   ytDlpCookiesBase64?: string;
+  ytDlpYouTubePoToken?: string;
 }
 
 export function loadEnv(): AppEnv {
@@ -34,7 +35,8 @@ export function loadEnv(): AppEnv {
     youtubeApiKey: optionalEnv("YOUTUBE_API_KEY"),
     ytDlpPath: optionalEnv("YT_DLP_PATH"),
     ytDlpCookiesPath: optionalEnv("YT_DLP_COOKIES_PATH"),
-    ytDlpCookiesBase64: optionalEnv("YT_DLP_COOKIES_BASE64")
+    ytDlpCookiesBase64: optionalEnv("YT_DLP_COOKIES_BASE64"),
+    ytDlpYouTubePoToken: optionalEnv("YT_DLP_YOUTUBE_PO_TOKEN")
   };
 }
 

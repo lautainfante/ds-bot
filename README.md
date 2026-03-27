@@ -54,6 +54,7 @@ Variables:
 - `YT_DLP_PATH` opcional si no usas `tools/yt-dlp.exe`
 - `YT_DLP_COOKIES_PATH` opcional si tienes un `cookies.txt`
 - `YT_DLP_COOKIES_BASE64` opcional para Railway/Render si prefieres pegar el archivo codificado
+- `YT_DLP_YOUTUBE_PO_TOKEN` opcional si YouTube sigue bloqueando aun con cookies
 
 ## Deploy 24/7
 
@@ -76,6 +77,7 @@ Este bot ya queda listo para deploy con Docker. El repo incluye [Dockerfile](/C:
 - `YT_DLP_PATH` opcional, por defecto el contenedor usa `/usr/local/bin/yt-dlp`
 - `YT_DLP_COOKIES_PATH` opcional si montas un archivo de cookies
 - `YT_DLP_COOKIES_BASE64` recomendado en Railway cuando YouTube pide login
+- `YT_DLP_YOUTUBE_PO_TOKEN` recomendado si cookies solas no alcanzan
 
 ### Cookies de YouTube en Railway
 
@@ -93,6 +95,18 @@ Ejemplo en PowerShell para generar el base64:
 ```
 
 Tambien puedes montar un archivo y usar `YT_DLP_COOKIES_PATH`, pero en Railway normalmente es mas simple usar `YT_DLP_COOKIES_BASE64`.
+
+### PO Token de YouTube
+
+Si incluso con cookies sigues viendo `Sign in to confirm you're not a bot`, YouTube probablemente esta exigiendo un `PO Token` para streaming desde ese datacenter.
+
+Carga ese valor en:
+
+```text
+YT_DLP_YOUTUBE_PO_TOKEN=
+```
+
+El bot lo pasa a `yt-dlp` como extractor arg para el cliente `mweb`.
 
 ### Railway
 

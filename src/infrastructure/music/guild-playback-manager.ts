@@ -18,6 +18,10 @@ import { GuildSettings } from "../../domain/entities/guild-settings";
 import { Track } from "../../domain/entities/track";
 import { UserFacingError } from "../../domain/errors/user-facing-error";
 import { Logger } from "../../shared/logger";
+import {
+  isTrackCompletionPremature,
+  shouldRetryEarlyEndedTrack
+} from "./playback-retry-policy";
 
 export interface PlaybackRequest {
   guildId: string;
@@ -51,6 +55,7 @@ class PlaybackSession {
   private pausedDurationMs = 0;
   private loopMode: LoopMode = "off";
   private skipRequested = false;
+  private readonly retryAttempts = new WeakMap<Track, number>();
 
   constructor(
     private readonly guildId: string,
@@ -67,13 +72,42 @@ class PlaybackSession {
 
     this.player.on(AudioPlayerStatus.Idle, () => {
       const finishedTrack = this.currentTrack;
-      const shouldRequeue = finishedTrack && !this.skipRequested;
+      const elapsedMs = this.getElapsedMs();
+      const retryAttemptCount = finishedTrack ? this.retryAttempts.get(finishedTrack) ?? 0 : 0;
+      const endedPrematurely = finishedTrack
+        ? isTrackCompletionPremature(finishedTrack.durationMs, elapsedMs)
+        : false;
+      const shouldRetry = finishedTrack && !this.skipRequested
+        ? shouldRetryEarlyEndedTrack(finishedTrack.durationMs, elapsedMs, retryAttemptCount)
+        : false;
 
-      if (finishedTrack && shouldRequeue) {
-        if (this.loopMode === "track") {
-          this.queue.unshift(finishedTrack);
-        } else if (this.loopMode === "queue") {
-          this.queue.push(finishedTrack);
+      if (finishedTrack && shouldRetry) {
+        const nextAttempt = retryAttemptCount + 1;
+        this.retryAttempts.set(finishedTrack, nextAttempt);
+        this.queue.unshift(finishedTrack);
+        this.logger.warn("Track ended early, retrying", {
+          guildId: this.guildId,
+          track: finishedTrack.title,
+          elapsedMs,
+          durationMs: finishedTrack.durationMs,
+          retryAttempt: nextAttempt
+        });
+      } else if (finishedTrack) {
+        this.retryAttempts.delete(finishedTrack);
+
+        if (endedPrematurely && !this.skipRequested) {
+          this.logger.warn("Track ended early, skipping after retry budget", {
+            guildId: this.guildId,
+            track: finishedTrack.title,
+            elapsedMs,
+            durationMs: finishedTrack.durationMs
+          });
+        } else if (!this.skipRequested) {
+          if (this.loopMode === "track") {
+            this.queue.unshift(finishedTrack);
+          } else if (this.loopMode === "queue") {
+            this.queue.push(finishedTrack);
+          }
         }
       }
 
@@ -227,6 +261,7 @@ class PlaybackSession {
     }
 
     if (shouldReplayCurrent && this.currentTrack) {
+      this.retryAttempts.delete(this.currentTrack);
       this.queue.unshift(this.currentTrack);
       this.currentTrack = undefined;
       this.player.stop(true);
@@ -234,12 +269,18 @@ class PlaybackSession {
   }
 
   skip(): boolean {
+    if (this.currentTrack) {
+      this.retryAttempts.delete(this.currentTrack);
+    }
     this.skipRequested = true;
     return this.player.stop(true);
   }
 
   stop(): void {
     this.queue.length = 0;
+    if (this.currentTrack) {
+      this.retryAttempts.delete(this.currentTrack);
+    }
     this.currentTrack = undefined;
     this.currentVolumeController = undefined;
     this.currentTrackStartedAt = undefined;

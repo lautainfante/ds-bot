@@ -32,7 +32,7 @@ RUN apt-get update \
   && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
   && cd /opt/bgutil-ytdlp-pot-provider/server \
   && npm install \
-  && npm exec --package typescript tsc \
+  && npm exec --package typescript@5.9.2 tsc \
   && apt-get purge -y --auto-remove git \
   && rm -rf /var/lib/apt/lists/*
 

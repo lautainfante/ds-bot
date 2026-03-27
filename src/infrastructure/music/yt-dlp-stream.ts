@@ -6,7 +6,7 @@ import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
 const DEFAULT_LINUX_BINARY = "/usr/local/bin/yt-dlp";
-const DEFAULT_BGUTIL_SCRIPT_PATH = "/opt/bgutil-ytdlp-pot-provider/server/build/generate_once.js";
+const DEFAULT_BGUTIL_SERVER_HOME = "/opt/bgutil-ytdlp-pot-provider/server";
 const AUDIO_FORMAT_SELECTORS = [
   "bestaudio[acodec!=none]/bestaudio*/ba",
   "140/251/250/249",
@@ -181,13 +181,13 @@ function looksLikeNetscapeCookies(value: string): boolean {
 
 function buildExtractorArgs(): string[] {
   const extractorArgs: string[] = [];
-  const bgutilScriptPath = process.env.YT_DLP_BGUTIL_SCRIPT_PATH?.trim();
+  const bgutilServerHome = resolveBgutilServerHome();
   const poToken = process.env.YT_DLP_YOUTUBE_PO_TOKEN?.trim();
 
-  if (bgutilScriptPath) {
-    extractorArgs.push(`youtubepot-bgutilscript:script_path=${bgutilScriptPath}`);
+  if (bgutilServerHome) {
+    extractorArgs.push(`youtubepot-bgutilscript:server_home=${bgutilServerHome}`);
   } else if (process.platform !== "win32") {
-    extractorArgs.push(`youtubepot-bgutilscript:script_path=${DEFAULT_BGUTIL_SCRIPT_PATH}`);
+    extractorArgs.push(`youtubepot-bgutilscript:server_home=${DEFAULT_BGUTIL_SERVER_HOME}`);
   }
 
   if (!poToken) {
@@ -197,6 +197,26 @@ function buildExtractorArgs(): string[] {
 
   extractorArgs.push(`youtube:player-client=web_music,web,mweb;po_token=mweb.gvs+${poToken}`);
   return extractorArgs;
+}
+
+function resolveBgutilServerHome(): string | undefined {
+  const configuredServerHome = process.env.YT_DLP_BGUTIL_SERVER_HOME?.trim();
+
+  if (configuredServerHome) {
+    return configuredServerHome;
+  }
+
+  const legacyScriptPath = process.env.YT_DLP_BGUTIL_SCRIPT_PATH?.trim();
+
+  if (!legacyScriptPath) {
+    return undefined;
+  }
+
+  if (legacyScriptPath.endsWith(".js")) {
+    return path.resolve(legacyScriptPath, "..", "..");
+  }
+
+  return legacyScriptPath;
 }
 
 function wrapSelectorError(formatSelector: string, error: unknown): Error {

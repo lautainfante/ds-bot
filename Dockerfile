@@ -20,6 +20,7 @@ FROM node:20-bookworm-slim AS runtime
 ENV NODE_ENV=production
 ENV YT_DLP_PATH=/usr/local/bin/yt-dlp
 ENV YT_DLP_BGUTIL_SCRIPT_PATH=/opt/bgutil-ytdlp-pot-provider/server/build/generate_once.js
+ENV BGUTIL_VERSION=1.3.1
 
 WORKDIR /app
 
@@ -29,9 +30,9 @@ RUN apt-get update \
   && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U pip setuptools wheel \
   && /opt/yt-dlp-venv/bin/pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider \
   && ln -sf /opt/yt-dlp-venv/bin/yt-dlp /usr/local/bin/yt-dlp \
-  && git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
+  && git clone --depth 1 --branch ${BGUTIL_VERSION} https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
   && cd /opt/bgutil-ytdlp-pot-provider/server \
-  && npm install \
+  && npm ci \
   && npm exec --package typescript@5.9.2 tsc \
   && apt-get purge -y --auto-remove git \
   && rm -rf /var/lib/apt/lists/*

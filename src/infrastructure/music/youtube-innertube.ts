@@ -1,4 +1,4 @@
-import { Readable } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import {
   extractYouTubePlaylistId,
   extractYouTubeVideoId,
@@ -41,16 +41,7 @@ export async function downloadYouTubeAudio(videoUrl: string): Promise<NodeJS.Rea
         throw new Error(`Client ${client} did not return a direct audio URL`);
       }
 
-      const response = await fetch(format.url, {
-        headers: buildStreamHeaders(client),
-        redirect: "follow"
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error(`Client ${client} stream request failed with status ${response.status}`);
-      }
-
-      return Readable.fromWeb(response.body as any);
+      return await fetchYouTubeAudioChunked(format.url, buildStreamHeaders(client));
     } catch (error) {
       lastError = error;
     }
@@ -215,6 +206,70 @@ function buildStreamHeaders(client: (typeof YOUTUBE_AUDIO_CLIENTS)[number]): Rec
     "origin": "https://www.youtube.com",
     "referer": "https://www.youtube.com/"
   };
+}
+
+const YOUTUBE_CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB per range request
+
+async function fetchYouTubeAudioChunked(
+  url: string,
+  headers: Record<string, string>
+): Promise<NodeJS.ReadableStream> {
+  // Parse total content length from the `clen` query parameter YouTube embeds in audio URLs.
+  // Without range requests YouTube's CDN closes the connection after the first chunk (~2-3 MB),
+  // which cuts off audio mid-track.
+  const urlObj = new URL(url);
+  const clen = urlObj.searchParams.get("clen");
+  const totalSize = clen ? parseInt(clen, 10) : NaN;
+
+  if (!totalSize || isNaN(totalSize)) {
+    // No clen — fall back to a single request and hope for the best.
+    const response = await fetch(url, { headers, redirect: "follow" });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`YouTube audio request failed with status ${response.status}`);
+    }
+
+    return Readable.fromWeb(response.body as any);
+  }
+
+  const output = new PassThrough();
+
+  void (async () => {
+    try {
+      let offset = 0;
+
+      while (offset < totalSize) {
+        const end = Math.min(offset + YOUTUBE_CHUNK_SIZE - 1, totalSize - 1);
+        const response = await fetch(url, {
+          headers: { ...headers, "Range": `bytes=${offset}-${end}` },
+          redirect: "follow"
+        });
+
+        if (!response.ok || !response.body) {
+          output.destroy(
+            new Error(`YouTube audio chunk request failed at offset ${offset} with status ${response.status}`)
+          );
+          return;
+        }
+
+        const readable = Readable.fromWeb(response.body as any);
+
+        await new Promise<void>((resolve, reject) => {
+          readable.on("end", resolve);
+          readable.on("error", reject);
+          readable.pipe(output, { end: false });
+        });
+
+        offset = end + 1;
+      }
+
+      output.end();
+    } catch (error) {
+      output.destroy(error instanceof Error ? error : new Error(String(error)));
+    }
+  })();
+
+  return output;
 }
 
 async function getYouTubeWebPlaylistDetails(

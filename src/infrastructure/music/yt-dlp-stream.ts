@@ -23,6 +23,22 @@ export async function createYtDlpStream(videoUrl: string): Promise<NodeJS.Readab
         "--no-playlist",
         "--quiet",
         "--no-warnings",
+        // Forzar descarga en chunks via Range requests. Es la forma estandar de
+        // evitar que YouTube nos throttlee la conexion despues de los primeros
+        // MB y termine cortando el audio a la mitad.
+        "--http-chunk-size",
+        "1048576",
+        // Reintentos agresivos a nivel HTTP y a nivel fragmento por si algun
+        // chunk falla momentaneamente.
+        "--retries",
+        "infinite",
+        "--fragment-retries",
+        "infinite",
+        "--retry-sleep",
+        "http:exp=1:20",
+        "--socket-timeout",
+        "30",
+        "--no-part",
         "-f",
         formatSelector,
         "-o",

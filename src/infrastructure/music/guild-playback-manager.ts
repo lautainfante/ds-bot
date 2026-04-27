@@ -43,6 +43,8 @@ export interface QueueSnapshot {
   isPaused: boolean;
 }
 
+const IDLE_DISCONNECT_MS = 5 * 60 * 1000; // 5 minutos sin musica -> el bot se va
+
 class PlaybackSession {
   private readonly queue: Track[] = [];
   private readonly player: AudioPlayer;
@@ -56,17 +58,22 @@ class PlaybackSession {
   private loopMode: LoopMode = "off";
   private skipRequested = false;
   private readonly retryAttempts = new WeakMap<Track, number>();
+  private idleTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly guildId: string,
     initialSettings: GuildSettings,
     private readonly audioFactory: TrackAudioFactory,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    private readonly onAutoDisconnect?: () => void
   ) {
     this.settings = initialSettings;
     this.player = createAudioPlayer({
       behaviors: {
-        noSubscriber: NoSubscriberBehavior.Pause
+        // Mantenemos el resource encodando aunque la conexion de voz tenga un
+        // blip momentaneo. Con `Pause` el buffer se vacia y discord.js manda al
+        // player a Idle, lo que se ve como un track que termina antes de tiempo.
+        noSubscriber: NoSubscriberBehavior.Play
       }
     });
 
@@ -117,7 +124,11 @@ class PlaybackSession {
       this.currentTrackStartedAt = undefined;
       this.pausedAt = undefined;
       this.pausedDurationMs = 0;
-      void this.playNext();
+      void this.playNext().then(() => {
+        if (!this.currentTrack && this.queue.length === 0) {
+          this.scheduleIdleDisconnect();
+        }
+      });
     });
 
     this.player.on("stateChange", (oldState, newState) => {
@@ -243,9 +254,41 @@ class PlaybackSession {
 
   async enqueue(tracks: Track[]): Promise<void> {
     this.queue.push(...tracks);
+    this.cancelIdleDisconnect();
 
     if (!this.currentTrack) {
       await this.playNext();
+    }
+  }
+
+  private scheduleIdleDisconnect(): void {
+    this.cancelIdleDisconnect();
+
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined;
+
+      if (this.currentTrack || this.queue.length > 0) {
+        return;
+      }
+
+      this.logger.info("Auto-disconnecting after idle period", {
+        guildId: this.guildId,
+        idleMs: IDLE_DISCONNECT_MS
+      });
+
+      this.stop();
+      this.onAutoDisconnect?.();
+    }, IDLE_DISCONNECT_MS);
+
+    if (typeof this.idleTimer.unref === "function") {
+      this.idleTimer.unref();
+    }
+  }
+
+  private cancelIdleDisconnect(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = undefined;
     }
   }
 
@@ -287,6 +330,7 @@ class PlaybackSession {
     this.pausedAt = undefined;
     this.pausedDurationMs = 0;
     this.skipRequested = false;
+    this.cancelIdleDisconnect();
     this.player.stop(true);
     this.connection?.destroy();
     this.connection = undefined;
@@ -351,6 +395,10 @@ class PlaybackSession {
       this.currentVolumeController = undefined;
       return;
     }
+
+    // Si habia un timer de auto-disconnect en marcha, lo cancelamos: hay
+    // musica nueva que reproducir.
+    this.cancelIdleDisconnect();
 
     this.currentTrack = nextTrack;
     this.currentTrackStartedAt = undefined;
@@ -496,7 +544,17 @@ export class GuildPlaybackManager {
       return existing;
     }
 
-    const created = new PlaybackSession(guildId, settings, this.audioFactory, this.logger);
+    const created = new PlaybackSession(
+      guildId,
+      settings,
+      this.audioFactory,
+      this.logger,
+      () => {
+        // Cuando la session se desconecta sola por inactividad, la sacamos
+        // del map para que la proxima reproduccion arranque limpia.
+        this.sessions.delete(guildId);
+      }
+    );
     this.sessions.set(guildId, created);
     return created;
   }

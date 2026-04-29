@@ -1,7 +1,7 @@
 import { access, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { PassThrough } from "node:stream";
 
 const DEFAULT_WINDOWS_BINARY = path.resolve(process.cwd(), "tools", "yt-dlp.exe");
@@ -60,6 +60,17 @@ async function resolveYtDlpPath(): Promise<string> {
 
   if (configuredPath) {
     return configuredPath;
+  }
+
+  if (process.platform !== "win32") {
+    try {
+      const whichPath = execSync("which yt-dlp", { encoding: "utf8" }).trim();
+      if (whichPath) {
+        return whichPath;
+      }
+    } catch {
+      // not in PATH, fall through to static candidates
+    }
   }
 
   const candidates = process.platform === "win32"

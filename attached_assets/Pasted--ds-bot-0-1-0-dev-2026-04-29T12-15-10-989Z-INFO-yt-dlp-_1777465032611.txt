@@ -1,0 +1,69 @@
+> ds-bot@0.1.0 dev
+[2026-04-29T12:15:10.989Z] [INFO] yt-dlp runtime configuration {"path":"/usr/local/bin/yt-dlp","cookies":"none"}
+[2026-04-29T12:15:10.997Z] [INFO] Voice dependency report {"report":"--------------------------------------------------\nCore Dependencies\n- @discordjs/voice: 0.19.2\n- prism-media: 1.3.5\n\nOpus Libraries\n- @discordjs/opus: 0.10.0\n- opusscript: 0.0.8\n\nEncryption Libraries\n- native crypto support for aes-256-gcm: yes\n- sodium-native: not found\n- sodium: not found\n- libsodium-wrappers: not found\n- @stablelib/xchacha20poly1305: not found\n- @noble/ciphers: not found\n\nDAVE Libraries\n- @snazzah/davey: 0.1.10\n\nFFmpeg\n- version: 7.0.2-static https://johnvansickle.com/ffmpeg/ \n- libopus: yes\n--------------------------------------------------"}
+[2026-04-29T12:15:11.553Z] [INFO] Discord bot connected {"user":"Seraphine#4687"}
+[2026-04-29T12:15:11.738Z] [INFO] Slash commands registered {"total":21,"scope":"global"}
+[2026-04-29T12:15:26.148Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"signalling","to":"connecting"}
+[2026-04-29T12:15:26.311Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":0,\"d\":{\"server_id\":\"989977713030864936\",\"user_id\":\"1486861633178304652\",\"session_id\":\"cbff15c61a2dd209562ef5d8a649c971\",\"token\":\"6115684ec65a6f33\",\"max_dave_protocol_version\":1}}"}
+[2026-04-29T12:15:26.311Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"connecting","to":"connecting"}
+[2026-04-29T12:15:26.311Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] state change:\nfrom {\"code\":0,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":false}\nto {\"code\":1,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":false}"}
+[2026-04-29T12:15:26.312Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":8,\"d\":{\"v\":8,\"heartbeat_interval\":13750}}"}
+[2026-04-29T12:15:26.358Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":2,\"d\":{\"streams\":[{\"type\":\"video\",\"ssrc\":3363,\"rtx_ssrc\":3364,\"rid\":\"\",\"quality\":0,\"active\":false}],\"ssrc\":3362,\"port\":19329,\"modes\":[\"aead_aes256_gcm_rtpsize\",\"aead_xchacha20_poly1305_rtpsize\"],\"ip\":\"104.29.158.246\",\"experiments\":[\"fixed_keyframe_interval\"]}}"}
+[2026-04-29T12:15:26.359Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"connecting","to":"connecting"}
+[2026-04-29T12:15:26.360Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] state change:\nfrom {\"code\":1,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":false}\nto {\"code\":2,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":true,\"connectionData\":{\"ssrc\":3362,\"connectedClients\":{}}}"}
+[2026-04-29T12:15:26.360Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"seq\":0,\"op\":11,\"d\":{\"user_ids\":[\"473333974572335126\"]}}"}
+[2026-04-29T12:15:26.361Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"seq\":1,\"op\":18,\"d\":{\"user_id\":\"473333974572335126\",\"flags\":2}}"}
+[2026-04-29T12:15:26.361Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"seq\":2,\"op\":20,\"d\":{\"user_id\":\"473333974572335126\",\"platform\":0}}"}
+[2026-04-29T12:15:26.395Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":1,\"d\":{\"protocol\":\"udp\",\"data\":{\"address\":\"35.222.30.239\",\"port\":33733,\"mode\":\"aead_aes256_gcm_rtpsize\"}}}"}
+[2026-04-29T12:15:26.395Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"connecting","to":"connecting"}
+[2026-04-29T12:15:26.395Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] state change:\nfrom {\"code\":2,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":true,\"connectionData\":{\"ssrc\":3362,\"connectedClients\":{}}}\nto {\"code\":3,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":true,\"connectionData\":{\"ssrc\":3362,\"connectedClients\":{}}}"}
+[2026-04-29T12:15:26.440Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":4,\"d\":{\"video_codec\":\"H264\",\"secure_frames_version\":1,\"secret_key\":[209,75,210,12,225,253,188,140,105,20,208,147,225,138,128,75,221,22,126,97,7,62,57,230,17,173,204,186,100,232,221,67],\"mode\":\"aead_aes256_gcm_rtpsize\",\"media_session_id\":\"03444f92a08fb7c81030f71ae3139563\",\"dave_protocol_version\":1,\"audio_codec\":\"opus\"}}"}
+[2026-04-29T12:15:26.441Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [DAVE] Session initialized for protocol version 1"}
+[2026-04-29T12:15:26.443Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> [bin] opcode 26, 393 bytes"}
+[2026-04-29T12:15:26.443Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"connecting","to":"ready"}
+[2026-04-29T12:15:26.443Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] state change:\nfrom {\"code\":3,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":true,\"connectionData\":{\"ssrc\":3362,\"connectedClients\":{}}}\nto {\"code\":4,\"ws\":true,\"connectionOptions\":{\"endpoint\":\"c-dfw13-b441f47a.discord.media:2096\",\"serverId\":\"989977713030864936\",\"token\":\"6115684ec65a6f33\",\"sessionId\":\"cbff15c61a2dd209562ef5d8a649c971\",\"userId\":\"1486861633178304652\",\"channelId\":\"989977713030864940\"},\"udp\":true,\"connectionData\":{\"ssrc\":3362,\"connectedClients\":{},\"encryptionMode\":\"aead_aes256_gcm_rtpsize\",\"secretKey\":{\"0\":209,\"1\":75,\"2\":210,\"3\":12,\"4\":225,\"5\":253,\"6\":188,\"7\":140,\"8\":105,\"9\":20,\"10\":208,\"11\":147,\"12\":225,\"13\":138,\"14\":128,\"15\":75,\"16\":221,\"17\":22,\"18\":126,\"19\":97,\"20\":7,\"21\":62,\"22\":57,\"23\":230,\"24\":17,\"25\":173,\"26\":204,\"27\":186,\"28\":100,\"29\":232,\"30\":221,\"31\":67},\"sequence\":30693,\"timestamp\":3229660723,\"nonce\":0,\"nonceBuffer\":{\"type\":\"Buffer\",\"data\":[0,0,0,0,0,0,0,0,0,0,0,0]},\"speaking\":false,\"packetsPlayed\":0},\"dave\":{\"_events\":{},\"_eventsCount\":4,\"channelId\":\"989977713030864940\",\"userId\":\"1486861633178304652\",\"protocolVersion\":1,\"pendingTransitions\":{},\"downgraded\":false,\"consecutiveFailures\":0,\"failureTolerance\":36,\"reinitializing\":false,\"session\":{}}}"}
+[2026-04-29T12:15:26.444Z] [INFO] Voice connection state change {"guildId":"989977713030864936","from":"ready","to":"ready"}
+[audio] creating resource track="ZYRE (SUPER SLOWED)" source="youtube" mode="compat"
+[audio] youtube strategy=yt-dlp-stdout
+[2026-04-29T12:15:26.445Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"seq\":3,\"op\":15,\"d\":{\"any\":100}}"}
+[2026-04-29T12:15:26.445Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << [bin] opcode 25, seq 4, 71 bytes"}
+[2026-04-29T12:15:26.446Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [DAVE] Set MLS external sender"}
+[2026-04-29T12:15:26.446Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << [bin] opcode 27, seq 5, 497 bytes"}
+[2026-04-29T12:15:26.451Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [DAVE] MLS proposals processed"}
+[2026-04-29T12:15:26.451Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> [bin] opcode 28, 1160 bytes"}
+[audio] youtube yt-dlp failed: [format=best] spawn /home/runner/workspace/tools/yt-dlp.exe EACCES
+[audio] youtube strategy=youtubei.js
+[2026-04-29T12:15:26.495Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << [bin] opcode 29, seq 6, 205 bytes"}
+[2026-04-29T12:15:26.496Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [DAVE] MLS commit processed (transition id: 0)"}
+[2026-04-29T12:15:26.634Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"idle","to":"buffering","track":"ZYRE (SUPER SLOWED)"}
+[2026-04-29T12:15:26.677Z] [ERROR] Player error {"guildId":"989977713030864936","error":"YouTube audio chunk request failed at offset 0 with status 403"}
+[2026-04-29T12:15:26.678Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"buffering","to":"idle"}
+[2026-04-29T12:15:40.063Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777464940063,\"seq_ack\":6}}"}
+[2026-04-29T12:15:40.108Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777464940063}}"}
+[audio] creating resource track="ZYRE (SUPER SLOWED)" source="youtube" mode="compat"
+[audio] youtube strategy=yt-dlp-stdout
+[audio] youtube yt-dlp failed: [format=best] spawn /home/runner/workspace/tools/yt-dlp.exe EACCES
+[audio] youtube strategy=youtubei.js
+[2026-04-29T12:15:41.080Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"idle","to":"buffering","track":"ZYRE (SUPER SLOWED)"}
+[2026-04-29T12:15:41.115Z] [ERROR] Player error {"guildId":"989977713030864936","error":"YouTube audio chunk request failed at offset 0 with status 403"}
+[2026-04-29T12:15:41.115Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"buffering","to":"idle"}
+(node:3770) Warning: Supplying "ephemeral" for interaction response options is deprecated. Utilize flags instead.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2026-04-29T12:15:53.814Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777464953814,\"seq_ack\":6}}"}
+[2026-04-29T12:15:53.861Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777464953814}}"}
+[audio] creating resource track="ZYRE (SUPER SLOWED)" source="youtube" mode="compat"
+[audio] youtube strategy=yt-dlp-stdout
+[audio] youtube yt-dlp failed: [format=best] spawn /home/runner/workspace/tools/yt-dlp.exe EACCES
+[audio] youtube strategy=youtubei.js
+[2026-04-29T12:16:05.723Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"idle","to":"buffering","track":"ZYRE (SUPER SLOWED)"}
+[2026-04-29T12:16:05.760Z] [ERROR] Player error {"guildId":"989977713030864936","error":"YouTube audio chunk request failed at offset 0 with status 403"}
+[2026-04-29T12:16:05.760Z] [INFO] Audio player state change {"guildId":"989977713030864936","from":"buffering","to":"idle"}
+[2026-04-29T12:16:07.564Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777464967564,\"seq_ack\":6}}"}
+[2026-04-29T12:16:07.609Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777464967564}}"}
+[2026-04-29T12:16:21.314Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777464981314,\"seq_ack\":6}}"}
+[2026-04-29T12:16:21.358Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777464981314}}"}
+[2026-04-29T12:16:35.064Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777464995064,\"seq_ack\":6}}"}
+[2026-04-29T12:16:35.109Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777464995064}}"}
+[2026-04-29T12:16:48.815Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] >> {\"op\":3,\"d\":{\"t\":1777465008815,\"seq_ack\":6}}"}
+[2026-04-29T12:16:48.863Z] [INFO] Voice connection debug {"guildId":"989977713030864936","message":"[NW] [WS] << {\"op\":6,\"d\":{\"t\":1777465008815}}"}
+[2026-04-29T12:17:02.566Z

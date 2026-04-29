@@ -235,14 +235,21 @@ async function spawnYtDlpStream(
         return;
       }
 
-      if (code === 0 || code === null) {
-        output.end();
-        return;
+      // Non-zero exit after stream started: destroy output with an error,
+      // but only once stdout has fully drained to avoid "write after end".
+      // For code === 0 or null (killed), the pipe handles output.end()
+      // automatically when child.stdout closes — no manual call needed.
+      if (code !== null && code !== 0) {
+        child.stdout.once("end", () => {
+          if (!output.destroyed) {
+            output.destroy(
+              new Error(
+                `yt-dlp failed with exit code ${code}${formatStderr(stderrChunks)}`
+              )
+            );
+          }
+        });
       }
-
-      output.destroy(
-        new Error(`yt-dlp failed with exit code ${code ?? "unknown"}${formatStderr(stderrChunks)}`)
-      );
     });
 
     output.once("close", () => {

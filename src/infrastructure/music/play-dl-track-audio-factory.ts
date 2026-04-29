@@ -132,23 +132,23 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       }
     });
 
-    ffmpeg.stdout.on("data", (chunk: Buffer) => {
+    // Count bytes on the output side, NOT on ffmpeg.stdout directly.
+    // Adding a "data" listener to ffmpeg.stdout before pipe() would switch
+    // it to flowing mode and break backpressure management.
+    output.on("data", (chunk: Buffer) => {
       outputBytes += chunk.length;
-    });
-
-    ffmpeg.stdout.on("end", () => {
-      console.info(`[audio] ffmpeg stdout end bytes=${outputBytes}`);
-      output.end();
     });
 
     ffmpeg.on("exit", (code) => {
       console.info(
         `[audio] ffmpeg exit code=${code ?? "null"} bytes=${outputBytes}${formatStderr(stderrChunks)}`
       );
-      if (code && code !== 0) {
-        output.destroy(
-          new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
-        );
+      if (code !== null && code !== 0) {
+        if (!output.destroyed) {
+          output.destroy(
+            new Error(`FFmpeg failed with exit code ${code}${formatStderr(stderrChunks)}`)
+          );
+        }
       }
     });
 
@@ -159,6 +159,8 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
     });
 
     input.pipe(ffmpeg.stdin);
+    // Let pipe() manage the entire lifecycle of ffmpeg.stdout → output,
+    // including calling output.end() exactly once when ffmpeg.stdout ends.
     ffmpeg.stdout.pipe(output);
 
     return output;
@@ -170,7 +172,7 @@ function buildFfmpegArgs(settings: GuildSettings): string[] {
     "-analyzeduration",
     "0",
     "-loglevel",
-    "0",
+    "error",
     "-i",
     "pipe:0",
     "-vn",

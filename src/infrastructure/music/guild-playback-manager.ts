@@ -295,13 +295,10 @@ class PlaybackSession {
   async updateSettings(settings: GuildSettings): Promise<void> {
     const shouldReplayCurrent =
       this.settings.bassBoost !== settings.bassBoost ||
-      this.settings.nightcore !== settings.nightcore;
+      this.settings.nightcore !== settings.nightcore ||
+      this.settings.volume !== settings.volume;
 
     this.settings = settings;
-
-    if (this.player.state.status !== AudioPlayerStatus.Idle) {
-      this.currentVolumeController?.setVolume(settings.volume / 100);
-    }
 
     if (shouldReplayCurrent && this.currentTrack) {
       this.retryAttempts.delete(this.currentTrack);

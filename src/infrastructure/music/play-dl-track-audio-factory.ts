@@ -27,12 +27,10 @@ export class PlayDlTrackAudioFactory implements TrackAudioFactory {
       : await this.createCompatibilityOutput(track.audioUrl, settings);
 
     const resource = createAudioResource<Track>(ffmpegOutput, {
-      inputType: StreamType.Raw,
-      inlineVolume: true,
+      inputType: StreamType.OggOpus,
       metadata: track
     });
 
-    resource.volume?.setVolume(clamp(settings.volume, 0, 150) / 100);
     return resource;
   }
 
@@ -179,8 +177,10 @@ function buildFfmpegArgs(settings: GuildSettings): string[] {
     "-sn",
     "-dn",
     ...buildAudioFilterArgs(settings),
+    "-c:a",
+    "libopus",
     "-f",
-    "s16le",
+    "ogg",
     "-ar",
     "48000",
     "-ac",
@@ -208,6 +208,11 @@ function formatStderr(stderrChunks: string[]): string {
 
 function buildAudioFilterArgs(settings: GuildSettings): string[] {
   const filters: string[] = [];
+
+  const volume = clamp(settings.volume, 0, 150);
+  if (volume !== 100) {
+    filters.push(`volume=${volume / 100}`);
+  }
 
   if (settings.bassBoost > 0) {
     filters.push(`bass=g=${clamp(settings.bassBoost, 0, 20)}`);
